@@ -1,7 +1,7 @@
 <?php
 
-$var_regex = "/^(GF|TF|LF)@([a-zA-Z]|_|-|\$|&|%|\*|!|\?)([a-zA-Z0-9]|_|-|\$|&|%|\*|!|\?)*$/";
-$label_regex = "/^([a-zA-Z]|_|-|\$|&|%|\*|!|\?)([a-zA-Z0-9]|_|-|\$|&|%|\*|!|\?)*$/";
+$var_regex = '/^(GF|TF|LF)@([a-zA-Z]|_|-|\$|&|%|\*|!|\?)([a-zA-Z0-9]|_|-|\$|&|%|\*|!|\?)*$/';
+$label_regex = '/^([a-zA-Z]|_|-|\$|&|%|\*|!|\?)([a-zA-Z0-9]|_|-|\$|&|%|\*|!|\?)*$/';
 
 function check_number_of_tokens($number, $expected)
 {
@@ -124,7 +124,8 @@ xmlwriter_start_attribute($xml, 'language');
 xmlwriter_text($xml, 'IPPcode23');
 
 foreach ($lines as $index => $line) {
-    $lines[$index] = preg_replace("/#.*/", "", $line);
+    $lines[$index] = preg_replace('!\s+!', ' ', $line);
+    $lines[$index] = preg_replace("/#.*/", '', $line);
     $lines[$index] = trim($lines[$index]);
     if ($lines[$index] == "")
         unset($lines[$index]);
