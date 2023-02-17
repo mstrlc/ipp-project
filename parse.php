@@ -37,9 +37,22 @@ function check_symb($token)
             return;
         else if ($type == "bool" && ($val == "true" || $val == "false"))
             return;
-        else if ($type == "string" && preg_match($GLOBALS['label_regex'], $val))
+        else if ($type == "string") {
+            if(str_contains($val, "\\"))
+                {
+                    $num_of_backslashes = substr_count($val, "\\");
+                    $regex_matches = 0;
+                    preg_match_all("/\\\\[0-9]{3}/", $val, $regex_matches);
+                    if($num_of_backslashes != count($regex_matches[0]))
+                    {
+                        fwrite(STDERR, "Error: Invalid symbol $token!\n");
+                        exit(23);
+                    }
+                    else
+                        return;
+                }
             return;
-        else if ($type == "nil" && $val == "nil")
+        } else if ($type == "nil" && $val == "nil")
             return;
         else {
             fwrite(STDERR, "Error: Invalid symbol $token!\n");
