@@ -1,7 +1,6 @@
 <?php
 
 $var_regex = "/^(GF|TF|LF)@([a-zA-Z]|_|-|\$|&|%|\*|!|\?)([a-zA-Z0-9]|_|-|\$|&|%|\*|!|\?)*$/";
-$const_regex = "/^(int|bool|string|nil)@([a-zA-Z]|_|-|\$|&|%|\*|!|\?)([a-zA-Z0-9]|_|-|\$|&|%|\*|!|\?)*$/";
 $label_regex = "/^([a-zA-Z]|_|-|\$|&|%|\*|!|\?)([a-zA-Z0-9]|_|-|\$|&|%|\*|!|\?)*$/";
 
 function check_number_of_tokens($number, $expected)
@@ -33,10 +32,7 @@ function check_symb($token)
     $type = explode("@", $token)[0];
     $val = explode("@", $token)[1];
 
-    if (
-        !preg_match($GLOBALS['var_regex'], $token) &&
-        !preg_match($GLOBALS['const_regex'], $token)
-    ) {
+    if (!preg_match($GLOBALS['var_regex'], $token)) {
         if ($type == "int" && is_numeric($val))
             return;
         else if ($type == "bool" && ($val == "true" || $val == "false"))
@@ -120,10 +116,10 @@ foreach ($lines as $index => $line) {
     if ($lines[$index] == "")
         unset($lines[$index]);
 }
- 
+
 $lines = array_values($lines);
 
-if($lines[0] != ".IPPcode23") {
+if ($lines[0] != ".IPPcode23") {
     fwrite(STDERR, "Error: Invalid header!\n");
     exit(21);
 }
