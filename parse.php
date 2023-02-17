@@ -38,19 +38,16 @@ function check_symb($token)
         else if ($type == "bool" && ($val == "true" || $val == "false"))
             return;
         else if ($type == "string") {
-            if(str_contains($val, "\\"))
-                {
-                    $num_of_backslashes = substr_count($val, "\\");
-                    $regex_matches = 0;
-                    preg_match_all("/\\\\[0-9]{3}/", $val, $regex_matches);
-                    if($num_of_backslashes != count($regex_matches[0]))
-                    {
-                        fwrite(STDERR, "Error: Invalid symbol $token!\n");
-                        exit(23);
-                    }
-                    else
-                        return;
-                }
+            if (str_contains($val, "\\")) {
+                $num_of_backslashes = substr_count($val, "\\");
+                $regex_matches = 0;
+                preg_match_all("/\\\\[0-9]{3}/", $val, $regex_matches);
+                if ($num_of_backslashes != count($regex_matches[0])) {
+                    fwrite(STDERR, "Error: Invalid symbol $token!\n");
+                    exit(23);
+                } else
+                    return;
+            }
             return;
         } else if ($type == "nil" && $val == "nil")
             return;
@@ -107,9 +104,36 @@ function write_arg($xml, $num, $token)
     xmlwriter_end_element($xml);
 }
 
+function print_help()
+{
+    echo "parse.php (IPP projekt 2023 - 1. cast)
+    Skript typu filtr nacte ze standardniho vstupu zdrojovy kod v IPPcode23,
+    zkontroluje lexikalni a syntaktickou spravnost kodu a vypise na standardni
+    vystup XML reprezentaci programu.
+Pouziti:
+    php8.1 parse.php [--help]
+Prepinace:
+    --help - vypise napovedu
+Chybove kody:
+    21 - chybna nebo chybejici hlavicka ve zdrojovem kodu zapsanem v IPPcode23,
+    22 - neznamy nebo chybny operacni kod ve zdrojovem kodu zapsanem v IPPcode23,
+    23 - jina lexikalni nebo syntakticka chyba zdrojoveho kodu zapsaneho v IPPcode23.";
+    echo "\n";
+}
+
 // https://www.php.net/manual/en/example.xmlwriter-simple.php
 
 ini_set('display_errors', 'stderr');
+
+if ($argc > 1) {
+    if ($argv[1] == "--help") {
+        print_help();
+        exit(0);
+    } else {
+        fwrite(STDERR, "Error: Invalid argument!\n");
+        exit(10);
+    }
+}
 
 $input = file_get_contents('php://stdin');
 $lines = explode("\n", $input);
