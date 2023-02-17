@@ -123,11 +123,12 @@ xmlwriter_start_element($xml, 'program');
 xmlwriter_start_attribute($xml, 'language');
 xmlwriter_text($xml, 'IPPcode23');
 
-foreach ($lines as $index => $line) {
+
+foreach ($lines as $index => &$line) {
     $lines[$index] = preg_replace('!\s+!', ' ', $line);
     $lines[$index] = preg_replace("/#.*/", '', $line);
-    $lines[$index] = trim($lines[$index]);
-    if ($lines[$index] == "")
+    $lines[$index] = trim($line);
+    if ($line == "")
         unset($lines[$index]);
 }
 
@@ -141,7 +142,7 @@ if ($lines[0] != ".IPPcode23") {
 $lines = array_slice($lines, 1);
 
 $instruction_order = 1;
-foreach ($lines as $index => $line) {
+foreach ($lines as $line) {
     xmlwriter_start_element($xml, 'instruction');
     xmlwriter_start_attribute($xml, 'order');
     xmlwriter_text($xml, $instruction_order);
