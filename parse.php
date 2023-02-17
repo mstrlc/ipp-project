@@ -3,19 +3,18 @@
 $var_regex = "/^(GF|TF|LF)@([a-zA-Z]|_|-|\$|&|%|\*|!|\?)([a-zA-Z0-9]|_|-|\$|&|%|\*|!|\?)*$/";
 $const_regex = "/^(int|bool|string|nil)@([a-zA-Z]|_|-|\$|&|%|\*|!|\?)([a-zA-Z0-9]|_|-|\$|&|%|\*|!|\?)*$/";
 $label_regex = "/^([a-zA-Z]|_|-|\$|&|%|\*|!|\?)([a-zA-Z0-9]|_|-|\$|&|%|\*|!|\?)*$/";
+
 function check_number_of_tokens($number, $expected)
 {
-    if ($number != $expected)
-    {
+    if ($number != $expected) {
         fwrite(STDERR, "Error: Wrong number of arguments! Expected $expected, got $number.\n");
-        exit(22);
+        exit(23);
     }
 }
 
 function check_var($token)
 {
-    if(!preg_match($GLOBALS['var_regex'], $token))
-    {
+    if (!preg_match($GLOBALS['var_regex'], $token)) {
         fwrite(STDERR, "Error: Invalid variable $token!\n");
         exit(23);
     }
@@ -23,8 +22,7 @@ function check_var($token)
 
 function check_label($token)
 {
-    if(!preg_match($GLOBALS['label_regex'], $token))
-    {
+    if (!preg_match($GLOBALS['label_regex'], $token)) {
         fwrite(STDERR, "Error: Invalid label $token!\n");
         exit(23);
     }
@@ -35,19 +33,19 @@ function check_symb($token)
     $type = explode("@", $token)[0];
     $val = explode("@", $token)[1];
 
-    if(!preg_match($GLOBALS['var_regex'], $token) &&
-       !preg_match($GLOBALS['const_regex'], $token))
-    {
-        if($type == "int" && is_numeric($val))
+    if (
+        !preg_match($GLOBALS['var_regex'], $token) &&
+        !preg_match($GLOBALS['const_regex'], $token)
+    ) {
+        if ($type == "int" && is_numeric($val))
             return;
-        else if($type == "bool" && ($val == "true" || $val == "false"))
+        else if ($type == "bool" && ($val == "true" || $val == "false"))
             return;
-        else if($type == "string" && preg_match($GLOBALS['label_regex'], $val))
+        else if ($type == "string" && preg_match($GLOBALS['label_regex'], $val))
             return;
-        else if($type == "nil" && $val == "nil")
+        else if ($type == "nil" && $val == "nil")
             return;
-        else
-        {
+        else {
             fwrite(STDERR, "Error: Invalid symbol $token!\n");
             exit(23);
         }
@@ -56,8 +54,7 @@ function check_symb($token)
 
 function check_type($token)
 {
-    if($token != "int" && $token != "bool" && $token != "string" && $token != "nil")
-    {
+    if ($token != "int" && $token != "bool" && $token != "string" && $token != "nil") {
         fwrite(STDERR, "Error: Invalid type $token!\n");
         exit(23);
     }
@@ -66,35 +63,28 @@ function check_type($token)
 function write_arg($xml, $num, $token)
 {
     // <var> or <const>
-    if(str_contains($token, "@"))
-    {
+    if (str_contains($token, "@")) {
         $type = explode("@", $token)[0];
 
         // <var>
-        if($type == "GF" || $type == "TF" || $type == "LF")
-        {
+        if ($type == "GF" || $type == "TF" || $type == "LF") {
             $type = "var";
             $value = $token;
         }
         // <const>
-        else if($type == "int" || $type == "bool" || $type == "string" || $type == "nil")
-        {
-            $type = $type;
+        else if ($type == "int" || $type == "bool" || $type == "string" || $type == "nil") {
             $value = explode("@", $token)[1];
         }
     }
     // <type> or <label>
-    else
-    {
+    else {
         // <type>
-        if($token == "int" || $token == "bool" || $token == "string" || $token == "nil")
-        {
+        if ($token == "int" || $token == "bool" || $token == "string" || $token == "nil") {
             $type = "type";
             $value = $token;
         }
         // <label>
-        else
-        {
+        else {
             $type = "label";
             $value = $token;
         }
@@ -124,21 +114,24 @@ xmlwriter_start_element($xml, 'program');
 xmlwriter_start_attribute($xml, 'language');
 xmlwriter_text($xml, 'IPPcode23');
 
-if((preg_replace("/#.*/", "", $lines[0])) != ".IPPcode23")
-{
+foreach ($lines as $index => $line) {
+    $lines[$index] = preg_replace("/#.*/", "", $line);
+    $lines[$index] = trim($lines[$index]);
+    if ($lines[$index] == "")
+        unset($lines[$index]);
+}
+ 
+$lines = array_values($lines);
+
+if($lines[0] != ".IPPcode23") {
     fwrite(STDERR, "Error: Invalid header!\n");
     exit(21);
 }
 
-$instruction_order = 1;
-foreach ($lines as $index => $line)
-{
-    // Remove comments, match everything after '#' until the end of the line
-    $line = preg_replace("/#.*/", "", $line);
-    // Skip the first line and empty lines
-    $line = trim($line);
-    if ($index == 0 || $line == "") continue;
+$lines = array_slice($lines, 1);
 
+$instruction_order = 1;
+foreach ($lines as $index => $line) {
     xmlwriter_start_element($xml, 'instruction');
     xmlwriter_start_attribute($xml, 'order');
     xmlwriter_text($xml, $instruction_order);
@@ -152,8 +145,7 @@ foreach ($lines as $index => $line)
     xmlwriter_text($xml, $instruction);
     xmlwriter_end_attribute($xml);
 
-    switch($instruction)
-    {
+    switch ($instruction) {
         // 0 arguments
         case "CREATEFRAME":
         case "PUSHFRAME":
@@ -194,6 +186,7 @@ foreach ($lines as $index => $line)
         // 2 arguments
         // <var> <symb>
         case "MOVE":
+        case "NOT":
         case "INT2CHAR":
         case "STRLEN":
         case "TYPE":
@@ -224,7 +217,6 @@ foreach ($lines as $index => $line)
         case "EQ":
         case "AND":
         case "OR":
-        case "NOT":
         case "STRI2INT":
         case "CONCAT":
         case "GETCHAR":
@@ -249,8 +241,6 @@ foreach ($lines as $index => $line)
             write_arg($xml, 2, $tokens[2]);
             write_arg($xml, 3, $tokens[3]);
             break;
-    
-        // Invalid instruction
         default:
             fwrite(STDERR, "Error: Invalid instruction $instruction!\n");
             exit(22);
