@@ -1,12 +1,119 @@
 <?php
 
+$var_regex = "/^(GF|TF|LF)@([a-zA-Z]|_|-|\$|&|%|\*|!|\?)([a-zA-Z0-9]|_|-|\$|&|%|\*|!|\?)*$/";
+$const_regex = "/^(int|bool|string|nil)@([a-zA-Z]|_|-|\$|&|%|\*|!|\?)([a-zA-Z0-9]|_|-|\$|&|%|\*|!|\?)*$/";
+$label_regex = "/^([a-zA-Z]|_|-|\$|&|%|\*|!|\?)([a-zA-Z0-9]|_|-|\$|&|%|\*|!|\?)*$/";
+function check_number_of_tokens($number, $expected)
+{
+    if ($number != $expected)
+    {
+        fwrite(STDERR, "Error: Wrong number of arguments! Expected $expected, got $number.\n");
+        exit(22);
+    }
+}
+
+function check_var($token)
+{
+    if(!preg_match($GLOBALS['var_regex'], $token))
+    {
+        fwrite(STDERR, "Error: Invalid variable $token!\n");
+        exit(23);
+    }
+}
+
+function check_label($token)
+{
+    if(!preg_match($GLOBALS['label_regex'], $token))
+    {
+        fwrite(STDERR, "Error: Invalid label $token!\n");
+        exit(23);
+    }
+}
+
+function check_symb($token)
+{
+    $type = explode("@", $token)[0];
+    $val = explode("@", $token)[1];
+
+    if(!preg_match($GLOBALS['var_regex'], $token) &&
+       !preg_match($GLOBALS['const_regex'], $token))
+    {
+        if($type == "int" && is_numeric($val))
+            return;
+        else if($type == "bool" && ($val == "true" || $val == "false"))
+            return;
+        else if($type == "string" && preg_match($GLOBALS['label_regex'], $val))
+            return;
+        else if($type == "nil" && $val == "nil")
+            return;
+        else
+        {
+            fwrite(STDERR, "Error: Invalid symbol $token!\n");
+            exit(23);
+        }
+    }
+}
+
+function check_type($token)
+{
+    if($token != "int" && $token != "bool" && $token != "string" && $token != "nil")
+    {
+        fwrite(STDERR, "Error: Invalid type $token!\n");
+        exit(23);
+    }
+}
+
+function write_arg($xml, $num, $token)
+{
+    // <var> or <const>
+    if(str_contains($token, "@"))
+    {
+        $type = explode("@", $token)[0];
+
+        // <var>
+        if($type == "GF" || $type == "TF" || $type == "LF")
+        {
+            $type = "var";
+            $value = $token;
+        }
+        // <const>
+        else if($type == "int" || $type == "bool" || $type == "string" || $type == "nil")
+        {
+            $type = $type;
+            $value = explode("@", $token)[1];
+        }
+    }
+    // <type> or <label>
+    else
+    {
+        // <type>
+        if($token == "int" || $token == "bool" || $token == "string" || $token == "nil")
+        {
+            $type = "type";
+            $value = $token;
+        }
+        // <label>
+        else
+        {
+            $type = "label";
+            $value = $token;
+        }
+    }
+
+    xmlwriter_start_element($xml, "arg" . $num);
+    xmlwriter_start_attribute($xml, "type");
+    xmlwriter_text($xml, $type);
+    xmlwriter_end_attribute($xml);
+    xmlwriter_text($xml, $value);
+    xmlwriter_end_element($xml);
+}
+
 // https://www.php.net/manual/en/example.xmlwriter-simple.php
 
 ini_set('display_errors', 'stderr');
 
 $input = file_get_contents('php://stdin');
 $lines = explode("\n", $input);
-
 
 $xml = xmlwriter_open_memory();
 xmlwriter_set_indent($xml, 1);
@@ -17,27 +124,20 @@ xmlwriter_start_element($xml, 'program');
 xmlwriter_start_attribute($xml, 'language');
 xmlwriter_text($xml, 'IPPcode23');
 
-// Check if the first line is a valid header
-if ($lines[0] != ".IPPcode23")
+if((preg_replace("/#.*/", "", $lines[0])) != ".IPPcode23")
 {
     fwrite(STDERR, "Error: Invalid header!\n");
     exit(21);
 }
 
-// Go through all lines
 $instruction_order = 1;
 foreach ($lines as $index => $line)
 {
-    // Skip the first line
-    if ($index == 0)
-        continue;
-
-    // Remove comments
-    $line = preg_replace("/#.*/", "", $line); // Match everything after '#' until the end of the line
-    
-    // Skip empty lines
-    if (trim($line) == "")
-        continue;
+    // Remove comments, match everything after '#' until the end of the line
+    $line = preg_replace("/#.*/", "", $line);
+    // Skip the first line and empty lines
+    $line = trim($line);
+    if ($index == 0 || $line == "") continue;
 
     xmlwriter_start_element($xml, 'instruction');
     xmlwriter_start_attribute($xml, 'order');
@@ -60,62 +160,25 @@ foreach ($lines as $index => $line)
         case "POPFRAME":
         case "RETURN":
         case "BREAK":
-            if ($num_of_tokens != 1)
-            {
-                fwrite(STDERR, "Error: Wrong number of arguments!\n");
-                exit(22);
-            }
+            check_number_of_tokens($num_of_tokens, 1);
             break;
-            
-        // 1 argument
 
+        // 1 argument
         // <var>
         case "DEFVAR":
         case "POPS":
-            if ($num_of_tokens != 2)
-            {
-                fwrite(STDERR, "Error: Wrong number of arguments!\n");
-                exit(22);
-            }
-            if(preg_match("/^(G|T|L)F@([a-zA-Z]|_|-|\$|&|%|\*|!|\?)([a-zA-Z0-9]|_|-|\$|&|%|\*|!|\?)*$/", $tokens[1]))
-            {
-                xmlwriter_start_element($xml, 'arg1');
-                xmlwriter_start_attribute($xml, 'type');
-                xmlwriter_text($xml, 'var');
-                xmlwriter_end_attribute($xml);
-                xmlwriter_text($xml, $tokens[1]);
-                xmlwriter_end_element($xml);
-            }
-            else
-            {
-                fwrite(STDERR, "Error: Invalid variable name at $tokens[1]!\n");
-                exit(23);
-            }
+            check_number_of_tokens($num_of_tokens, 2);
+            check_var($tokens[1]);
+            write_arg($xml, 1, $tokens[1]);
             break;
 
         // <label>
         case "CALL":
         case "LABEL":
         case "JUMP":
-            if ($num_of_tokens != 2)
-            {
-                fwrite(STDERR, "Error: Wrong number of arguments!\n");
-                exit(22);
-            }
-            if(preg_match("/^([a-zA-Z]|_|-|\$|&|%|\*|!|\?)([a-zA-Z0-9]|_|-|\$|&|%|\*|!|\?)*$/", $tokens[1]))
-            {
-                xmlwriter_start_element($xml, 'arg1');
-                xmlwriter_start_attribute($xml, 'type');
-                xmlwriter_text($xml, 'var');
-                xmlwriter_end_attribute($xml);
-                xmlwriter_text($xml, $tokens[1]);
-                xmlwriter_end_element($xml);
-            }
-            else
-            {
-                fwrite(STDERR, "Error: Invalid variable name at $tokens[1]!\n");
-                exit(23);
-            }
+            check_number_of_tokens($num_of_tokens, 2);
+            check_label($tokens[1]);
+            write_arg($xml, 1, $tokens[1]);
             break;
 
         // <symb>
@@ -123,121 +186,79 @@ foreach ($lines as $index => $line)
         case "WRITE":
         case "EXIT":
         case "DPRINT":
-            if ($num_of_tokens != 2)
-            {
-                fwrite(STDERR, "Error: Wrong number of arguments!\n");
-                exit(22);
-            }
-            // if(preg_match("/^(int|bool|string|nil)@()")
-            // {
-            //     xmlwriter_start_element($xml, 'arg1');
-            //     xmlwriter_start_attribute($xml, 'type');
-            //     xmlwriter_text($xml, 'var');
-            //     xmlwriter_end_attribute($xml);
-            //     xmlwriter_text($xml, $tokens[1]);
-            //     xmlwriter_end_element($xml);
-            // }
-
-            // xmlwriter_start_element($xml, 'arg1');
-            // xmlwriter_start_attribute($xml, 'type');
-            // xmlwriter_text($xml, 'TODO');
-            // xmlwriter_end_attribute($xml);
-            // xmlwriter_text($xml, 'TODO');
-            // xmlwriter_end_element($xml);
+            check_number_of_tokens($num_of_tokens, 2);
+            check_symb($tokens[1]);
+            write_arg($xml, 1, $tokens[1]);
             break;
 
-        // // 2 arguments
-        // case "MOVE":
-        // case "INT2CHAR":
-        // case "STRLEN":
-        // case "TYPE":
-        // case "NOT":
-        // case "READ":
-        //     xmlwriter_start_element($xml, 'arg1');
-        //     xmlwriter_start_attribute($xml, 'type');
-        //     xmlwriter_text($xml, 'TODO');
-        //     xmlwriter_end_attribute($xml);
-        //     xmlwriter_text($xml, 'TODO');
-        //     xmlwriter_end_element($xml);
+        // 2 arguments
+        // <var> <symb>
+        case "MOVE":
+        case "INT2CHAR":
+        case "STRLEN":
+        case "TYPE":
+            check_number_of_tokens($num_of_tokens, 3);
+            check_var($tokens[1]);
+            check_symb($tokens[2]);
+            write_arg($xml, 1, $tokens[1]);
+            write_arg($xml, 2, $tokens[2]);
+            break;
 
-        //     xmlwriter_start_element($xml, 'arg2');
-        //     xmlwriter_start_attribute($xml, 'type');
-        //     xmlwriter_text($xml, 'TODO');
-        //     xmlwriter_end_attribute($xml);
-        //     xmlwriter_text($xml, 'TODO');
-        //     xmlwriter_end_element($xml);
-        //     break;
+        // <var> <type>    
+        case "READ":
+            check_number_of_tokens($num_of_tokens, 3);
+            check_var($tokens[1]);
+            check_type($tokens[2]);
+            write_arg($xml, 1, $tokens[1]);
+            write_arg($xml, 2, $tokens[2]);
+            break;
 
-        // // 3 arguments
-        // case "ADD":
-        // case "SUB":
-        // case "MUL":
-        // case "IDIV":
-        // case "LT":
-        // case "GT":
-        // case "EQ":
-        // case "AND":
-        // case "OR":
-        // case "STRI2INT":
-        // case "CONCAT":
-        // case "GETCHAR":
-        // case "SETCHAR":
-        // case "JUMPIFEQ":
-        // case "JUMPIFNEQ":
-        //     xmlwriter_start_element($xml, 'arg1');
-        //     xmlwriter_start_attribute($xml, 'type');
-        //     xmlwriter_text($xml, 'TODO');
-        //     xmlwriter_end_attribute($xml);
-        //     xmlwriter_text($xml, 'TODO');
-        //     xmlwriter_end_element($xml);
+        // 3 arguments
+        // <var> <symb> <symb>
+        case "ADD":
+        case "SUB":
+        case "MUL":
+        case "IDIV":
+        case "LT":
+        case "GT":
+        case "EQ":
+        case "AND":
+        case "OR":
+        case "NOT":
+        case "STRI2INT":
+        case "CONCAT":
+        case "GETCHAR":
+        case "SETCHAR":
+            check_number_of_tokens($num_of_tokens, 4);
+            check_var($tokens[1]);
+            check_symb($tokens[2]);
+            check_symb($tokens[3]);
+            write_arg($xml, 1, $tokens[1]);
+            write_arg($xml, 2, $tokens[2]);
+            write_arg($xml, 3, $tokens[3]);
+            break;
 
-        //     xmlwriter_start_element($xml, 'arg2');
-        //     xmlwriter_start_attribute($xml, 'type');
-        //     xmlwriter_text($xml, 'TODO');
-        //     xmlwriter_end_attribute($xml);
-        //     xmlwriter_text($xml, 'TODO');
-        //     xmlwriter_end_element($xml);
-
-        //     xmlwriter_start_element($xml, 'arg3');
-        //     xmlwriter_start_attribute($xml, 'type');
-        //     xmlwriter_text($xml, 'TODO');
-        //     xmlwriter_end_attribute($xml);
-        //     xmlwriter_text($xml, 'TODO');
-        //     xmlwriter_end_element($xml);
-        //     break;
-
+        // <label> <symb> <symb>
+        case "JUMPIFEQ":
+        case "JUMPIFNEQ":
+            check_number_of_tokens($num_of_tokens, 4);
+            check_label($tokens[1]);
+            check_symb($tokens[2]);
+            check_symb($tokens[3]);
+            write_arg($xml, 1, $tokens[1]);
+            write_arg($xml, 2, $tokens[2]);
+            write_arg($xml, 3, $tokens[3]);
+            break;
+    
+        // Invalid instruction
+        default:
+            fwrite(STDERR, "Error: Invalid instruction $instruction!\n");
+            exit(22);
     }
 
     xmlwriter_end_element($xml);
-
     $instruction_order++;
 }
-
-
-
-// // A first element
-// xmlwriter_start_element($xml, 'tag1');
-
-// // Attribute 'att1' for element 'tag1'
-// xmlwriter_start_attribute($xml, 'att1');
-// xmlwriter_text($xml, 'valueofatt1');
-// xmlwriter_end_attribute($xml);
-
-// // Start a child element
-// xmlwriter_start_element($xml, 'tag11');
-// xmlwriter_text($xml, 'This is a sample text, ä');
-// xmlwriter_end_element($xml); // tag11
-
-// xmlwriter_end_element($xml); // tag1
-
-// xmlwriter_start_element($xml, 'testc');
-// xmlwriter_text($xml, "test cdata2");
-// xmlwriter_end_element($xml); // testc
-
-// // A processing instruction
-// xmlwriter_start_pi($xml, 'php');
-// xmlwriter_text($xml, '$foo=2;echo $foo;');
-// xmlwriter_end_pi($xml);
 
 xmlwriter_end_document($xml);
 echo xmlwriter_output_memory($xml);
