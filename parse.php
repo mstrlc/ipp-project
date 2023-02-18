@@ -136,6 +136,11 @@ if ($argc > 1) {
 }
 
 $input = file_get_contents('php://stdin');
+if (empty(trim($input))) {
+    fwrite(STDERR, "Error: Empty input!\n");
+    exit(11);
+}
+
 $lines = explode("\n", $input);
 
 $xml = xmlwriter_open_memory();
