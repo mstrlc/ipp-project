@@ -33,9 +33,11 @@ function check_symb($token)
     $val = explode("@", $token)[1];
 
     if (!preg_match($GLOBALS['var_regex'], $token)) {
-        if ($type == "int" && is_numeric($val))
-            return;
-        else if ($type == "bool" && ($val == "true" || $val == "false"))
+        if ($type == "int") {
+            if (is_numeric($val) || preg_match('/^0[xX][0-9a-fA-F]+(_[0-9a-fA-F]+)*$/', $val) || preg_match('/^0[oO]?[0-7]+(_[0-7]+)*$/', $val)) {
+                return;
+            }
+        } else if ($type == "bool" && ($val == "true" || $val == "false"))
             return;
         else if ($type == "string") {
             if (str_contains($val, "\\")) {
