@@ -34,11 +34,17 @@ function check_symb($token)
 
     if (!preg_match($GLOBALS['var_regex'], $token)) {
         if ($type == "int") {
-            if (is_numeric($val) || preg_match('/^0[xX][0-9a-fA-F]+(_[0-9a-fA-F]+)*$/', $val) || preg_match('/^0[oO]?[0-7]+(_[0-7]+)*$/', $val)) {
+            if (is_numeric($val) || preg_match('/^0[xX][0-9a-fA-F]+(_[0-9a-fA-F]+)*$/', $val) || preg_match('/^0[oO]?[0-7]+(_[0-7]+)*$/', $val) || !empty($val)) {
                 return;
             }
-        } else if ($type == "bool" && ($val == "true" || $val == "false"))
+            else {
+                fwrite(STDERR, "Error: Invalid symbol $token!\n");
+                exit(23);
+            }
+        }
+        else if ($type == "bool" && ($val == "true" || $val == "false")) {
             return;
+        }
         else if ($type == "string") {
             if (str_contains($val, "\\")) {
                 $num_of_backslashes = substr_count($val, "\\");
@@ -57,6 +63,9 @@ function check_symb($token)
             fwrite(STDERR, "Error: Invalid symbol $token!\n");
             exit(23);
         }
+    }
+    else {
+        return;
     }
 }
 
