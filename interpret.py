@@ -29,7 +29,7 @@ class Prog:
         self.instructions = instructions
 
         # Find all labels to prevent redefinition
-        self.get_labels(self.instructions)
+        self._get_labels(self.instructions)
 
         self.current_instruction = 0
         while(self.current_instruction < len(instructions)):
@@ -37,7 +37,7 @@ class Prog:
             self.current_instruction += 1
 
     # Get all labels from the program
-    def get_labels(self, instructions):
+    def _get_labels(self, instructions):
         for i in range(len(instructions)):
             if(instructions[i].opcode == 'LABEL'):
                 if(instructions[i].args[0].data in self.labels):
@@ -78,6 +78,8 @@ class Prog:
                 self.lf[-1][var.name] = Const(None)
             else:
                 Helper.error_exit("Frame not defined", Errors.NONEXISTENT_FRAME.value, self)
+        else:
+            Helper.error_exit("Frame not defined", Errors.NONEXISTENT_FRAME.value, self)
 
     # Check if variable is defined in given frame
     def _is_var_defined(self, var):
@@ -583,7 +585,8 @@ class READ(Instruction):
                 val = Nil()
             program.write_to_var(var, val)
         elif (val_type.data == 'string'):
-            string = Helper.string_escape(read)
+            string = read.strip()
+            string = Helper.string_escape(string)
             val = String(str(string))
             program.write_to_var(var, val)
         else:
@@ -824,6 +827,7 @@ class DPRINT(Instruction):
                     val1 = 'true'
                 elif(val1 == False):
                     val1 = 'false'
+            print(sys.argv, file=sys.stderr)
             print(val1, end='', file=sys.stderr)
 
 class BREAK(Instruction):
@@ -895,9 +899,11 @@ class InputFiles:
         elif(args.source is None and args.input is None):
             Helper.error_exit("Missing parameter --source or --input", Errors.MISSING_PARAMETER.value, None)
 
-###
+# ------------------–------------------–------------------–------------------–------------------ #
 
+# Class for XML parsing
 class Xml:
+    # Input file is XML representation of IPPcode23 source code
     def __init__(self, input_file):
         self.xml_root = None
         self._header = None
@@ -1056,6 +1062,7 @@ class Helper:
                     index += 1
         return string
 
+    @staticmethod
     def error_exit(error, code, prog):
         if(prog is not None):
             print("ERROR "+str(code)+": "+str(error)+".\nCalled from "+str(prog.instructions[prog.current_instruction].opcode)+"("+str(prog.current_instruction)+").", file=sys.stderr)
